@@ -1,2 +1,2 @@
 # YT-Hide
-Hide videos by channel, title, or URL in this browser extension.
+Hide YouTube videos by channel, title, or URL in this browser extension.
