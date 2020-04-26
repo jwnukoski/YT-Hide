@@ -2,7 +2,7 @@
     "manifest_version": 2,
     "name": "YT-Hide",
     "version": "1.0",
-    "description": "Hide videos by channel, url, or title.",
+    "description": "Hide YT videos by channel or url.",
     "permissions": [
         "storage",
         "tabs",
