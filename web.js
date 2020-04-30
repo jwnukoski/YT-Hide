@@ -55,7 +55,7 @@ let ytBlockUser = (function() {
                     // Update in storage
                     if (val !== '' && chromeData !== null) {
                         chrome.storage.sync.set({ytblockurls: chromeData}, function () {
-                            console.log('Added url block: ' + val);
+                            console.log(`Added url block: ${val}`);
                         });
                     }
                 });
@@ -71,7 +71,7 @@ let ytBlockUser = (function() {
                     // Update in storage
                     if (val !== '' && chromeData !== null) {
                         chrome.storage.sync.set({ytblockchannels: chromeData}, function () {
-                            console.log('Added channel block: ' + val);
+                            console.log(`Added channel block: ${val}`);
                         });
                     }
                 });
@@ -81,7 +81,7 @@ let ytBlockUser = (function() {
                 setBlock('channel', '');
             break;
             default:
-                console.log('Unknown data type in setBlock: ' + type);
+                console.log(`Unknown data type in setBlock: ${type}`);
                 return null;
             break;
         }
