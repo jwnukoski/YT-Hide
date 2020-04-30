@@ -29,14 +29,18 @@ let ytBlockUser = (function() {
     // Add and save a video block to chrome storage, then sync to memory. 
     // Type = 'url', 'title', 'channel'. Val = string. 
     // Use 'sync' to get same data from Chrome storage to memory (although asynchonous)
+    // TODO: DRY principle. Asynchronous functions
     let setBlock = function(type, val) {
         switch (type) {
             case 'url':
                 chrome.storage.sync.get({ytblockurls: []}, function(data) {
-                    const chromeData = data.ytblockurls;
-                    if (val !== '') {
+                    const chromeData = data.ytblockurls.ytblockurls;
+                    if (!Array.isArray(chromeData))
+                        return null;
+
+                    if (val !== '')
                         chromeData.push(val);
-                    }
+
                     // Update in memory
                     urlBlocks = [];
                     urlBlocks = [...chromeData];
@@ -50,31 +54,15 @@ let ytBlockUser = (function() {
                     }
                 });
             break;
-            /*case 'title':
-                chrome.storage.sync.get({ytblocktitles: []}, function(data) {
-                    const chromeData = data.ytblocktitles;
-                    if (val !== '') {
-                        chromeData.push(val);
-                    }
-                    // Update in memory
-                    titleBlocks = [];
-                    titleBlocks = [...chromeData];
-                        
-                    // Update in storage
-                    if (val !== '') {
-                        chrome.storage.sync.set({ytblocktitles: data}, function () {
-                            // Update data in chrome sync
-                            console.log('Added ytblocktitles: ' + val);
-                        });
-                    }
-                });
-            break;*/
             case 'channel':
                 chrome.storage.sync.get({ytblockchannels: []}, function(data) {
                     const chromeData = data.ytblockchannels;
-                    if (val !== '') {
+                    if (!Array.isArray(chromeData))
+                        return null;
+
+                    if (val !== '')
                         chromeData.push(val);
-                    }
+
                     // Update in memory
                     channelBlocks = [];
                     channelBlocks = [...chromeData];
@@ -90,7 +78,6 @@ let ytBlockUser = (function() {
             break;
             case 'sync':
                 setBlock('url', '');
-                //setBlock('title', '');
                 setBlock('channel', '');
             break;
             default:
@@ -160,21 +147,22 @@ let ytBlock = (function(_user, _ytBlockSettings) {
         // Find watch URL and channel urls, title links
         // Different HTML format and tags on different pages, so select per page
         this.allLinkElements = this.ytVidBlockElement.getElementsByTagName('a'); // All A elements in video block
-        if (window.location.href.endsWith('.com/')) {
+        const urlAddress = window.location.href;
+        if (urlAddress.endsWith('.com/')) {
             // Front page of YT
             try {
                 this.blockInfo.url = this.allLinkElements[0].search;
                 this.blockInfo.channel = this.allLinkElements[3].text;
                 //this.blockInfo.title = this.allLinkElements[2].outerText;
             } catch(err) {}
-        } else if (window.location.href.includes('results?search_query=')) {
+        } else if (urlAddress.includes('results?search_query=')) {
             // Search page
             try {
                 this.blockInfo.url = this.allLinkElements[0].search;
                 this.blockInfo.channel = this.allLinkElements[2].text;
                 //this.blockInfo.title = this.allLinkElements[1].title;
             } catch (err) {}
-        } else if (window.location.href.includes('watch?v=')) {
+        } else if (urlAddress.includes('watch?v=')) {
             // Video page specifics. The related video sidebar
             try {
                 this.blockInfo.url = this.allLinkElements[0].search;
@@ -224,7 +212,6 @@ let ytBlock = (function(_user, _ytBlockSettings) {
         // Check if this video is in the block list. Hide if it is.
         this.checkBlocks('url');
         this.checkBlocks('channel');
-        //this.checkBlocks('title');
 
         // Add hide buttons if not already blocked and hidden
         if (!this.blocked) {
@@ -232,22 +219,22 @@ let ytBlock = (function(_user, _ytBlockSettings) {
             this.btnHideChannel = document.createElement('button');
             this.ytVidBlockElement.appendChild(this.btnHideChannel);
             this.btnHideChannel.appendChild(document.createTextNode('Hide Channel'));
-            this.btnHideChannel.vidObj = this;
             this.btnHideChannel.className = "btn-yt-hide";
             this.btnHideChannel.classList.add("yt-hide-channel");
-            this.btnHideChannel.addEventListener('click', function(){
-                ytBlockUser.setBlock('channel', event.target.vidObj.blockInfo.channel);
+            this.btnHideChannel.addEventListener('click', () => {
+                this.hide(true);
+                ytBlockUser.setBlock('channel', this.blockInfo.channel);
             });
 
             // Hide vidoe button
             this.btnHideVideo = document.createElement('button');
             this.ytVidBlockElement.appendChild(this.btnHideVideo);
             this.btnHideVideo.appendChild(document.createTextNode('Hide Video'));
-            this.btnHideVideo.vidObj = this;
             this.btnHideVideo.className = "btn-yt-hide";
             this.btnHideVideo.classList.add("yt-hide-video");
-            this.btnHideVideo.addEventListener('click', function(event) {
-                ytBlockUser.setBlock('url', event.target.vidObj.blockInfo.url);
+            this.btnHideVideo.addEventListener('click', () => {
+                this.hide(true);
+                ytBlockUser.setBlock('url', this.blockInfo.url);
             });
         }
 
@@ -284,15 +271,16 @@ let ytBlock = (function(_user, _ytBlockSettings) {
         // Get all major video blocks
         // Different on different yt pages.
         let elToObserve = null;
-        if (window.location.href.endsWith('.com/')) {
+        const urlAddress = window.location.href;
+        if (urlAddress.endsWith('.com/')) {
             // Home page
             populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainFrontPageVideoTag));
             elToObserve = document.getElementById('primary');
-        } else if (window.location.href.includes('results?search_query=')) {
+        } else if (urlAddress.includes('results?search_query=')) {
             // Search pages
             populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainVideoTag));
             elToObserve = document.getElementById('contents');
-        } else if (window.location.href.includes('watch?v=')) {
+        } else if (urlAddress.includes('watch?v=')) {
             // Video page
             // The sidebar doesnt appear to load with the rest of the DOM at regular time.
             // Delayed by background.js
@@ -309,9 +297,9 @@ let ytBlock = (function(_user, _ytBlockSettings) {
         // Populate video objects. 
         function populateVidObjs(_ytVidBlocks) {
             // Clean
-            for (let i = 0; i < ytVidObjs.length; i++) {
-                ytVidObjs[i].clean();
-            }
+            ytVidObjs.forEach(function(vidObj) {
+                vidObj.clean();
+            });
             ytVidObjs.splice(0, ytVidObjs.length); // empty array
 
             // Populate
@@ -363,8 +351,7 @@ ytBlock.init();
 
 // Receives message from background.js on page load
 chrome.runtime.onMessage.addListener(
-    function(request, sender, sendResponse) {
-      if (request.msg === "checkvids") {
+    function(request) {
+      if (request.msg === "checkvids")
         ytBlock.checkVids();
-      }
 });
