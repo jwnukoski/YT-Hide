@@ -1,15 +1,26 @@
 // For defining YT settings that may change in the future. All constant settings.
 let ytBlockSettings = (function() {
     const mainFrontPageVideoTag = 'ytd-rich-item-renderer'; // Only used on YT front page
-    const mainVideoTag = 'ytd-video-renderer'; // used in YT search pages
+    const mainFrontPageElToObserve = 'primary'; // ID of the element which videos can load in. Watch for DOM changes here. Front page.
+    const mainVideoSearchTag = 'ytd-video-renderer'; // used in YT search pages
+    const mainVideoSearchElToObserve = 'contents'; // ID of the element which videos can load in. Watch for DOM changes here. Search page.
     const mainSideBarVideoTag = 'ytd-compact-video-renderer'; // used in side bar
+    const mainSideBarVideoElToObserve = 'related'; // ID of the element which videos can load in. Watch for DOM changes here. Side bar in main watch page.
+    const urlYtSearch = 'results?search_query='; // URL for search page. String searches href with includes.
+    const urlYtWatch = 'watch?v='; // URL for video watch page. String searches href with includes.
+    
     const cssVideoDisplay = 'block';
     const cssVideoHide = 'none';
 
     return {
         mainFrontPageVideoTag,
-        mainVideoTag,
+        mainFrontPageElToObserve,
+        mainVideoSearchTag,
+        mainVideoSearchElToObserve,
         mainSideBarVideoTag,
+        mainSideBarVideoElToObserve,
+        urlYtSearch,
+        urlYtWatch,
         cssVideoDisplay,
         cssVideoHide
     };
@@ -150,13 +161,13 @@ let ytBlock = (function(_user, _ytBlockSettings) {
                 this.blockInfo.url = this.allLinkElements[0].search;
                 this.blockInfo.channel = this.allLinkElements[3].text;
             } catch(err) {}
-        } else if (urlAddress.includes('results?search_query=')) {
+        } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
             // Search page
             try {
                 this.blockInfo.url = this.allLinkElements[0].search;
                 this.blockInfo.channel = this.allLinkElements[2].text;
             } catch (err) {}
-        } else if (urlAddress.includes('watch?v=')) {
+        } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
             // Video page specifics. The related video sidebar
             try {
                 // Contains view, channel. Seperate...
@@ -269,17 +280,17 @@ let ytBlock = (function(_user, _ytBlockSettings) {
         if (urlAddress.endsWith('.com/')) {
             // Home page
             populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainFrontPageVideoTag));
-            elToObserve = document.getElementById('primary');
-        } else if (urlAddress.includes('results?search_query=')) {
+            elToObserve = document.getElementById(ytBlockSettings.mainFrontPageElToObserve);
+        } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
             // Search pages
-            populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainVideoTag));
-            elToObserve = document.getElementById('contents');
-        } else if (urlAddress.includes('watch?v=')) {
+            populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainVideoSearchTag));
+            elToObserve = document.getElementById(ytBlockSettings.mainVideoSearchElToObserve);
+        } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
             // Video page
             // The sidebar doesnt appear to load with the rest of the DOM at regular time.
             // Delayed by background.js
             populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainSideBarVideoTag));
-            elToObserve = document.getElementById('related');
+            elToObserve = document.getElementById(ytBlockSettings.mainSideBarVideoElToObserve);
         } else {
             console.log("YT-Hide doesn't support this page style yet.");
             return null;
