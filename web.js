@@ -136,51 +136,79 @@ let ytBlock = (function(_user, _ytBlockSettings) {
     let mutationObserver = null; // checks when new elements load on page
 
     // Video object
-    function Video(_ytVidBlockElement) {  
-        this.ytVidBlockElement = _ytVidBlockElement; // all a elements in video block DOM
-        this.blockInfo = {
-            url: "", // video watch url
-            channel: "", // video channel
-            type: "" // Type: 'url', 'channel'
-        };
-        this.blocked = false; // if found in block list
-        this.hidden = false; // visibility in html
-        this.btnHideChannel = null;
-        this.btnHideVideo = null;
+    class Video {
+        constructor(_ytVidBlockElement) {
+            this.ytVidBlockElement = _ytVidBlockElement; // all a elements in video block DOM
+            this.blockInfo = {
+                url: "", // video watch url
+                channel: "", // video channel
+                type: "" // Type: 'url', 'channel'
+            };
+            this.blocked = false; // if found in block list
+            this.hidden = false; // visibility in html
+            this.btnHideChannel = null;
+            this.btnHideVideo = null;
 
+            // If YT updates, this is the most likely to break:
+            // Find watch URL and channel urls, title links
+            // Different HTML format and tags on different pages, so select per page
+            this.allLinkElements = this.ytVidBlockElement.getElementsByTagName('a'); // All A elements in video block
+            const urlAddress = window.location.href;
+            if (urlAddress.endsWith('.com/')) {
+                // Front page of YT
+                try {
+                    this.blockInfo.url = this.allLinkElements[0].search;
+                    this.blockInfo.channel = this.allLinkElements[3].text;
+                } catch(err) {}
+            } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
+                // Search page
+                try {
+                    this.blockInfo.url = this.allLinkElements[0].search;
+                    this.blockInfo.channel = this.allLinkElements[2].text;
+                } catch (err) {}
+            } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
+                // Video page specifics. The related video sidebar
+                try {
+                    // Contains view, channel. Seperate...
+                    this.blockInfo.url = this.allLinkElements[0].search;
+                    this.blockInfo.channel = this.allLinkElements[1].innerText.split('\n')[1]; 
+                } catch (err) {}
+            } else {
+                console.log("YT-Hide doesn't know this page format yet.");
+            }
 
+            // Check if this video is in the block list. Hide if it is.
+            this.checkBlocks('url');
+            this.checkBlocks('channel');
 
-        // If YT updates, this is the most likely to break:
-        // Find watch URL and channel urls, title links
-        // Different HTML format and tags on different pages, so select per page
-        this.allLinkElements = this.ytVidBlockElement.getElementsByTagName('a'); // All A elements in video block
-        const urlAddress = window.location.href;
-        if (urlAddress.endsWith('.com/')) {
-            // Front page of YT
-            try {
-                this.blockInfo.url = this.allLinkElements[0].search;
-                this.blockInfo.channel = this.allLinkElements[3].text;
-            } catch(err) {}
-        } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
-            // Search page
-            try {
-                this.blockInfo.url = this.allLinkElements[0].search;
-                this.blockInfo.channel = this.allLinkElements[2].text;
-            } catch (err) {}
-        } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
-            // Video page specifics. The related video sidebar
-            try {
-                // Contains view, channel. Seperate...
-                this.blockInfo.url = this.allLinkElements[0].search;
-                this.blockInfo.channel = this.allLinkElements[1].innerText.split('\n')[1]; 
-            } catch (err) {}
-        } else {
-            console.log("YT-Hide doesn't know this page format yet.");
+            // Add hide buttons if not already blocked and hidden
+            if (!this.blocked) {
+                // Hide channel button
+                this.btnHideChannel = document.createElement('button');
+                this.ytVidBlockElement.appendChild(this.btnHideChannel);
+                this.btnHideChannel.appendChild(document.createTextNode('Hide Channel'));
+                this.btnHideChannel.className = "btn-yt-hide";
+                this.btnHideChannel.classList.add("yt-hide-channel");
+                this.btnHideChannel.addEventListener('click', () => {
+                    this.hide(true);
+                    ytBlockUser.setBlock('channel', this.blockInfo.channel);
+                });
+
+                // Hide video button
+                this.btnHideVideo = document.createElement('button');
+                this.ytVidBlockElement.appendChild(this.btnHideVideo);
+                this.btnHideVideo.appendChild(document.createTextNode('Hide Video'));
+                this.btnHideVideo.className = "btn-yt-hide";
+                this.btnHideVideo.classList.add("yt-hide-video");
+                this.btnHideVideo.addEventListener('click', () => {
+                    this.hide(true);
+                    ytBlockUser.setBlock('url', this.blockInfo.url);
+                });
+            }
         }
-        
 
         // Check if video block is in a block list located in memory
-        this.checkBlocks = function(type) {
+        checkBlocks(type) {
             if (!this.blocked) {
                 const arr = user.getMemBlocks(type);
                 for (let i = 0; i < arr.length; i++) {
@@ -196,12 +224,10 @@ let ytBlock = (function(_user, _ytBlockSettings) {
             } else {
                 return true; // has already been found
             }
-        };
-
-
+        }
 
         // Show or hide video block
-        this.hide = function(condition) {
+        hide(condition) {
             if (condition) {
                 this.ytVidBlockElement.style.display = ytBlockSettings.cssVideoHide;
                 this.hidden = true;
@@ -210,38 +236,9 @@ let ytBlock = (function(_user, _ytBlockSettings) {
                 this.hidden = false;
             }
             return condition;
-        };
-
-        // Check if this video is in the block list. Hide if it is.
-        this.checkBlocks('url');
-        this.checkBlocks('channel');
-
-        // Add hide buttons if not already blocked and hidden
-        if (!this.blocked) {
-            // Hide channel button
-            this.btnHideChannel = document.createElement('button');
-            this.ytVidBlockElement.appendChild(this.btnHideChannel);
-            this.btnHideChannel.appendChild(document.createTextNode('Hide Channel'));
-            this.btnHideChannel.className = "btn-yt-hide";
-            this.btnHideChannel.classList.add("yt-hide-channel");
-            this.btnHideChannel.addEventListener('click', () => {
-                this.hide(true);
-                ytBlockUser.setBlock('channel', this.blockInfo.channel);
-            });
-
-            // Hide video button
-            this.btnHideVideo = document.createElement('button');
-            this.ytVidBlockElement.appendChild(this.btnHideVideo);
-            this.btnHideVideo.appendChild(document.createTextNode('Hide Video'));
-            this.btnHideVideo.className = "btn-yt-hide";
-            this.btnHideVideo.classList.add("yt-hide-video");
-            this.btnHideVideo.addEventListener('click', () => {
-                this.hide(true);
-                ytBlockUser.setBlock('url', this.blockInfo.url);
-            });
         }
 
-        this.clean = function() {
+        clean() {
             // Remove buttons
             if (this.btnHideChannel !== null) {
                 this.btnHideChannel.remove();
@@ -259,7 +256,7 @@ let ytBlock = (function(_user, _ytBlockSettings) {
             this.hidden = false;
             this.btnHideChannel = null;
             this.btnHideVideo = null;
-        };
+        }
     }
 
     // Go through all blocks and hide videos. Main function to call to 'rescan' for videos to hide.
