@@ -105,18 +105,14 @@ let ytBlockUser = (function() {
 
     // Gets blocks in memory, not Chrome storage
     let getMemBlocks = function(type) {
-        switch (type) {
-            case 'url':
-                return urlBlocks;
-            break;
-            case 'channel':
-                return channelBlocks;
-            break;
-            default:
-                return null;
-            break;
+        if (type === 'url') {
+            return urlBlocks;
+        } else if (type === 'channel') {
+            return channelBlocks;
+        } else {
+            return null;
         }
-    }
+    };
 
     return {
         init,
@@ -134,6 +130,7 @@ let ytBlock = (function(_user, _ytBlockSettings) {
     let ytVidObjs = [];
     let initialized = false;
     let mutationObserver = null; // checks when new elements load on page
+    let checkingVids = false; // keeps track if checkVids is running.
 
     // Video object
     class Video {
@@ -262,53 +259,56 @@ let ytBlock = (function(_user, _ytBlockSettings) {
     // Go through all blocks and hide videos. Main function to call to 'rescan' for videos to hide.
     // TODO: Lower amount of times this can run.
     let checkVids = function() {
-        console.log('checking vids');
-        if (!initialized) {
-            return null;
-        }
+        if (!checkingVids && initialized) {
+            checkingVids = true; // dont allow more checks to get into execution stack
+            setTimeout(() => {
+                console.log('checking vids');
 
-        // Stop observing DOM changes, we'll be making alot of changes below
-        observe(null);
-
-        // Get all major video blocks
-        // Different on different yt pages.
-        let elToObserve = null;
-        const urlAddress = window.location.href;
-        if (urlAddress.endsWith('.com/')) {
-            // Home page
-            populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainFrontPageVideoTag));
-            elToObserve = document.getElementById(ytBlockSettings.mainFrontPageElToObserve);
-        } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
-            // Search pages
-            populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainVideoSearchTag));
-            elToObserve = document.getElementById(ytBlockSettings.mainVideoSearchElToObserve);
-        } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
-            // Video page
-            // The sidebar doesnt appear to load with the rest of the DOM at regular time.
-            // Delayed by background.js
-            populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainSideBarVideoTag));
-            elToObserve = document.getElementById(ytBlockSettings.mainSideBarVideoElToObserve);
-        } else {
-            console.log("YT-Hide doesn't support this page style yet.");
-            return null;
-        }
+                // Stop observing DOM changes, we'll be making alot of changes below
+                observe(null);
         
-        // Populate video objects. 
-        function populateVidObjs(_ytVidBlocks) {
-            // Clean
-            ytVidObjs.forEach(function(vidObj) {
-                vidObj.clean();
-            });
-            ytVidObjs.splice(0, ytVidObjs.length); // empty array
-
-            // Populate
-            for (let i = 0; i < _ytVidBlocks.length; i++) {
-                ytVidObjs.push(new Video(_ytVidBlocks[i]));
-            }
+                // Get all major video blocks
+                // Different on different yt pages.
+                let elToObserve = null;
+                const urlAddress = window.location.href;
+                if (urlAddress.endsWith('.com/')) {
+                    // Home page
+                    populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainFrontPageVideoTag));
+                    elToObserve = document.getElementById(ytBlockSettings.mainFrontPageElToObserve);
+                } else if (urlAddress.includes(ytBlockSettings.urlYtSearch)) {
+                    // Search pages
+                    populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainVideoSearchTag));
+                    elToObserve = document.getElementById(ytBlockSettings.mainVideoSearchElToObserve);
+                } else if (urlAddress.includes(ytBlockSettings.urlYtWatch)) {
+                    // Video page
+                    // The sidebar doesnt appear to load with the rest of the DOM at regular time.
+                    // Delayed by background.js
+                    populateVidObjs(document.getElementsByTagName(ytBlockSettings.mainSideBarVideoTag));
+                    elToObserve = document.getElementById(ytBlockSettings.mainSideBarVideoElToObserve);
+                } else {
+                    console.log("YT-Hide doesn't support this page style yet.");
+                    return null;
+                }
+                
+                // Populate video objects. 
+                function populateVidObjs(_ytVidBlocks) {
+                    // Clean
+                    ytVidObjs.forEach(function(vidObj) {
+                        vidObj.clean();
+                    });
+                    ytVidObjs.splice(0, ytVidObjs.length); // empty array
+        
+                    // Populate
+                    for (let i = 0; i < _ytVidBlocks.length; i++) {
+                        ytVidObjs.push(new Video(_ytVidBlocks[i]));
+                    }
+                }
+        
+                // Start looking for changes again
+                observe(elToObserve);
+                checkingVids = false; // allow to check again
+            }, 1000);
         }
-
-        // Start looking for changes again
-        observe(elToObserve);
     };
 
     // Pass a null parameter to just stop.
